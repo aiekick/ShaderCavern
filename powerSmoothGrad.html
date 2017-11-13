@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+	<html lang = "en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Power Smooth Gradiant</title>
+		<meta http - equiv = "X-UA-Compatible" content = "IE=Edge,chrome=1">
+		<style>
+			body
+			{
+				background - color: #000000;
+				margin : 0;
+				padding : 0;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body style="cursor: default;">
+		<script id="screenVertShader" type="x-shader/x-vertex">
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec3 position;
+void main()
+{
+	gl_Position = vec4(position, 1.0);
+}
+		</script>
+		<script id="screenFragShader" type="x-shader/x-fragment">
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform vec2 resolution;
+uniform sampler2D texture;
+void main()
+{
+	vec2 uv = gl_FragCoord.xy / resolution.xy;
+	gl_FragColor = texture2D(texture, uv);
+}
+		</script>
+		<script id="uBufferVertex" type="x-shader/x-vertex">
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform vec3 uColor;
+uniform vec3 uColor1;
+uniform vec2 uScreenSize;
+uniform float uSlider;
+void main()
+{
+	gl_Position = vec4(a_position, 0.0, 1.0);
+}		
+		</script>
+		<script id="uBufferFragment" type="x-shader/x-fragment">
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform vec3 uColor;
+uniform vec3 uColor1;
+uniform vec2 uScreenSize;
+uniform float uSlider;
+uniform float uSmoothFactor;
+// power smooth min (k = 8);
+float smin( float a, float b, float k )
+{
+    a = pow( a, k ); b = pow( b, k );
+    return pow( (a*b)/(a+b), 1.0/k );
+}
+void main()
+{
+	vec2 p = gl_FragCoord.xy * uSlider / uScreenSize;
+	float m = smin(p.x, p.y, uSmoothFactor);
+	vec3 col = mix(uColor, uColor1, m);
+	gl_FragColor = vec4(col, 1.0);
+}		
+		</script>
+		<script type="text/javascript" src="dat.gui.min.js">
+		</script>
+		<script>
+			if (!window.requestAnimationFrame)
+			{
+				window.requestAnimationFrame = (function()
+				{
+					return window.webkitRequestAnimationFrame ||
+						window.mozRequestAnimationFrame ||
+						window.oRequestAnimationFrame ||
+						window.msRequestAnimationFrame ||
+					function(callback, element)
+					{
+						window.setTimeout(callback, 1000 / 60);
+					};
+				})();
+			}
+			if (!Date.now)
+			{
+				Date.now = function()
+				{
+					return +new Date();
+				};
+			}
+			var parameters = { 
+			startTime: Date.now(), time : 0, screenWidth : 0, screenHeight : 0, frame : 0, 
+			color0 : [255,255,0], color1 : [255,127,0], slider : 20.0, smoothFactor : 0.5 };
+			var gui = new dat.GUI({height : 5 * 32 - 1});	
+			gui.addColor(parameters, 'color0');
+			gui.addColor(parameters, 'color1');
+			gui.add(parameters, 'slider', 0, 50);
+			gui.add(parameters, 'smoothFactor', 0, 2);
+			var canvas, gl, buffer, currentProgram, vertexPosition, screenVertexPosition, resizer = {}, programs = {},
+			surface = { centerX: 0, centerY : 0, width : 1, height : 1, isPanning : false, isZooming : false, lastX : 0, lastY : 0 },
+			frontTarget, backTarget, screenProgram, getWebGL;
+			init();
+			if (gl)
+			{
+				animate();
+			}
+			function init()
+			{
+				if (!document.addEventListener)
+				{
+					document.location = 'http://get.webgl.org/';
+					return;
+				}
+				canvas = document.createElement('canvas');
+				canvas.style.display = 'block';
+				document.body.appendChild(canvas);
+				try
+				{
+					gl = canvas.getContext('experimental-webgl', { preserveDrawingBuffer: true });
+				}
+				catch (error)
+				{
+					console.error(error);
+				}
+				if (!gl)
+				{
+					alert("WebGL not supported, but code will be shown.");
+				}
+				else
+				{
+					gl.getExtension('OES_standard_derivatives'); // enable dFdx, dFdy, fwidth
+					createQuadModel();
+				}
+				resizer.isResizing = false;
+				resizer.currentWidth = 100;
+				resizer.currentHeight = 100;
+				resizer.minWidth = 100;
+				resizer.minHeight = 100;
+				resizer.maxWidth = 100;
+				resizer.maxHeight = 100;
+				onWindowResize();
+				window.addEventListener('resize', onWindowResize, false);
+				compileScreenProgram();
+				programs.uBuffer = compile('uBufferVertex', 'uBufferFragment');
+				programs.uBuffer.a_position = gl.getAttribLocation(programs.uBuffer, "a_position");
+				cacheUniformLocation(programs.uBuffer, 'uColor');
+				cacheUniformLocation(programs.uBuffer, 'uColor1');
+				cacheUniformLocation(programs.uBuffer, 'uScreenSize');
+				cacheUniformLocation(programs.uBuffer, 'uSlider');
+				cacheUniformLocation(programs.uBuffer, 'uSmoothFactor');
+			}
+			function createQuadModel()
+			{
+				buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0]), gl.STATIC_DRAW);
+			}
+			function compile(vertShaderName, fragShaderName)
+			{
+				if (!gl)
+				{
+					if (!getWebGL)
+					{
+						getWebGL = true;
+						console.error("pas de webgl");
+					}
+					return null;
+				}
+				var program = gl.createProgram();
+				var vertex = document.getElementById(vertShaderName).textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fragment = document.getElementById(fragShaderName).textContent;
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				if (vs == null || fs == null) return null;
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+				{
+					var error = gl.getProgramInfoLog(program);
+					console.error(error);
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return null;
+				}
+				return program;
+			}
+			function compileScreenProgram()
+			{
+				if (!gl) { return; }
+				var program = gl.createProgram();
+				var fragment = document.getElementById('screenFragShader').textContent;
+				var vertex = document.getElementById('screenVertShader').textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) 
+				{
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return;
+				}
+				screenProgram = program;
+				gl.useProgram(screenProgram);
+				cacheUniformLocation(program, 'resolution');
+				cacheUniformLocation(program, 'texture');
+				screenVertexPosition = gl.getAttribLocation(screenProgram, "position");
+				gl.enableVertexAttribArray(screenVertexPosition);
+			}
+			function cacheUniformLocation(program, label)
+			{
+				if (program.uniformsCache === undefined)
+				{
+					program.uniformsCache = {};
+				}
+				program.uniformsCache[label] = gl.getUniformLocation(program, label);
+			}
+			function createFBO(width, height)
+			{
+				var fbo = {};
+				fbo.framebuffer = gl.createFramebuffer();
+				fbo.renderbuffer = gl.createRenderbuffer();
+				fbo.texture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, fbo.texture);
+				var texFloat = gl.getExtension('OES_texture_float');
+				if (texFloat)
+				{
+					// like in desktop : gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.FLOAT, null);
+				}
+				else
+				{
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				}
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fbo.texture, 0);
+				gl.bindRenderbuffer(gl.RENDERBUFFER, fbo.renderbuffer);
+				gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+				gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fbo.renderbuffer);
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				return fbo;
+			}
+			function createRenderTargets(width, height)
+			{
+				frontTarget = createFBO(width, height);
+				backTarget = createFBO(width, height);
+			}
+			function createShader(src, type)
+			{
+				var shader = gl.createShader(type);
+				var line, lineNum, lineError, index = 0, indexEnd;
+				gl.shaderSource(shader, src);
+				gl.compileShader(shader);
+				if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+				{
+					var error = gl.getShaderInfoLog(shader);
+					console.error(error);
+					return null;
+				}
+				return shader;
+			}
+			function onWindowResize(event)
+			{
+				var quality = 2;
+				canvas.width = window.innerWidth / quality;
+				canvas.height = window.innerHeight / quality;
+				canvas.style.width = window.innerWidth + 'px';
+				canvas.style.height = window.innerHeight + 'px';
+				parameters.screenWidth = canvas.width;
+				parameters.screenHeight = canvas.height;
+				if (gl)
+				{
+					gl.viewport(0, 0, canvas.width, canvas.height);
+					createRenderTargets(parameters.screenWidth, parameters.screenHeight);
+				}
+			}
+			function animate()
+			{
+				requestAnimationFrame(animate);
+				render();
+			}
+			function render()
+			{
+				if (!programs.uBuffer) return;
+				parameters.time = Date.now() - parameters.startTime;
+				// Set uniforms for custom shader
+				gl.useProgram(programs.uBuffer);			
+				gl.uniform2f(programs.uBuffer.uniformsCache['uScreenSize'], parameters.screenWidth, parameters.screenHeight);
+				gl.uniform3f(programs.uBuffer.uniformsCache['uColor'], parameters.color0[0]/255.0, parameters.color0[1]/255.0,parameters.color0[2]/255.0);
+				gl.uniform3f(programs.uBuffer.uniformsCache['uColor1'], parameters.color1[0]/255.0, parameters.color1[1]/255.0,parameters.color1[2]/255.0);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uSlider'], parameters.slider);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uSmoothFactor'], parameters.smoothFactor);
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0);
+				// Render custom shader to front buffer
+				gl.bindFramebuffer(gl.FRAMEBUFFER, frontTarget.framebuffer);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Set uniforms for screen shader
+				gl.useProgram(screenProgram);
+				gl.uniform2f(screenProgram.uniformsCache['resolution'], parameters.screenWidth, parameters.screenHeight);
+				gl.uniform1i(screenProgram.uniformsCache['texture'], 1);
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.vertexAttribPointer(screenVertexPosition, 2, gl.FLOAT, false, 0, 0);
+				gl.activeTexture(gl.TEXTURE1);
+				gl.bindTexture(gl.TEXTURE_2D, frontTarget.texture);
+				// Render front buffer to screen
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				var tmp = frontTarget;
+				frontTarget = backTarget;
+				backTarget = tmp;
+			}
+		</script>
+		<canvas width="960" height="455" style="display: block; width: 1920px; height: 910px;"/>
+	</body>
+</html>

@@ -8,6 +8,8 @@
 
 [Polynomial Smooth Gradiant](polySmoothGrad.html)
 
+[Polynomial Smooth Gradiant 5 Colors](polySmoothGrad_4Colors.html)
+
 [Power Smooth Gradiant](powerSmoothGrad.html)
 
 ### Converted From ShaderToy To WebGl Via SoShade

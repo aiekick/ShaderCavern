@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+	<html lang = "en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Title</title>
+		<meta http - equiv = "X-UA-Compatible" content = "IE=Edge,chrome=1">
+		<style>
+			body
+			{
+				background - color: #000000;
+				margin : 0;
+				padding : 0;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body style="cursor: default;">
+		<script id="screenVertShader" type="x-shader/x-vertex">
+attribute vec3 position;
+void main()
+{
+	gl_Position = vec4(position, 1.0);
+}
+		</script>
+		<script id="screenFragShader" type="x-shader/x-fragment">
+#ifdef GL_ES
+	precision highp float;
+#endif
+uniform vec2 resolution;
+uniform sampler2D texture;
+void main()
+{
+	vec2 uv = gl_FragCoord.xy / resolution.xy;
+	gl_FragColor = texture2D(texture, uv);
+}
+		</script>
+		<script id="uBufferVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute float vertexId; // Current vertex index
+varying vec4 v_color; // Current vertex color
+uniform float uCountVertex; // Count vertex for range operations on vertexId
+uniform mat4 uCamera;
+uniform float uSlider;
+uniform float uSlider1;
+uniform vec2 uSlider2;
+uniform float uSlider3;
+uniform float uSlider4;
+uniform float uSlider6;
+uniform float uTime;
+uniform float uTimeFactor;
+mat3 RotX(float a){return mat3(1.,0.,0.,0.,cos(a),-sin(a),0.,sin(a),cos(a));}
+mat3 RotY(float a){return mat3(cos(a),0.,sin(a),0.,1.,0.,-sin(a),0.,cos(a));}
+mat3 RotZ(float a){return mat3(cos(a),-sin(a),0.,sin(a),cos(a),0.,0.,0.,1.);}
+mat4 Trans(float x, float y, float z){return mat4(1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1);}
+
+void main()
+{
+	float indexQuad = floor(vertexId / 12.);
+	
+	float countSection = floor(uSlider);
+	
+	float indexCircle = floor(indexQuad / countSection);
+		
+	float astep = -3.14159 * 2.0 / countSection;
+	
+	float angleOffset = 3.14159 * 0.5;
+	float angle0 = indexQuad * astep + angleOffset;
+	float angle1 = (indexQuad + 1.) * astep + angleOffset;
+	
+	float radius = 1.;
+	
+	float ringCircle = floor(sqrt((4. * indexCircle - 1.) / 12.0) - 0.5) + 1.0;;
+		
+	float angleCircle = indexCircle / ringCircle + uTime;
+	float hexHeight = 1.0 + uSlider2.x * (sin((ringCircle + uTime * uTimeFactor)*.2)*0.5+0.5)*3.;
+	
+	float hexTop = hexHeight * 0.5;
+	float hexBottom = hexHeight * -0.5;
+	
+	float hexCenterOffset = uSlider2.y;
+	
+	float index = mod(vertexId, 12.);
+	
+	gl_PointSize = 3.;
+
+	vec3 p = vec3(0);
+	
+	// triangle bas
+	if (index == 0.) p = vec3(cos(angle0) * radius, hexBottom, sin(angle0) * radius);
+	if (index == 1.) p = vec3(cos(angle1) * radius, hexBottom, sin(angle1) * radius);
+	if (index == 2.) p = vec3(0,hexBottom - hexCenterOffset,0);
+	
+	// triangle 1
+	if (index == 3.) p = vec3(cos(angle0) * radius, hexBottom, sin(angle0) * radius);
+	if (index == 4.) p = vec3(cos(angle1) * radius, hexBottom, sin(angle1) * radius);
+	if (index == 5.) p = vec3(cos(angle1) * radius, hexTop, sin(angle1) * radius);
+	
+	// triangle 2
+	if (index == 6.) p = vec3(cos(angle0) * radius, hexBottom, sin(angle0) * radius);
+	if (index == 7.) p = vec3(cos(angle1) * radius, hexTop, sin(angle1) * radius);
+	if (index == 8.) p = vec3(cos(angle0) * radius, hexTop, sin(angle0) * radius);
+	
+	// triangle haut
+	if (index == 9.) p = vec3(cos(angle0) * radius, hexTop, sin(angle0) * radius);
+	if (index == 10.) p = vec3(cos(angle1) * radius, hexTop, sin(angle1) * radius);
+	if (index == 11.) p = vec3(0,hexTop + hexCenterOffset,0);
+	
+	// normale
+	vec3 n = vec3(0);
+	if (index >= 3. && index <= 8.) n = normalize(vec3(p.x,0.,p.z));
+	else  n = normalize(vec3(0,p.y,0));
+	
+	vec3 col = n;
+	
+	if (indexCircle > 0.)
+	{
+		float side_length = ringCircle;
+		
+		float circleOffset = (3. * pow(ringCircle,2.) + 3. * ringCircle + 1.) - indexCircle;
+		
+		float side_number = floor(circleOffset / side_length);
+		float side_offset = mod(circleOffset, side_length);
+		
+		float as = 3.14159 * 2.0 / floor(uSlider);
+		
+		float a = as * side_number;
+		vec2 corner = vec2(cos(a),sin(a));
+		
+		a = as * mod((side_number + 1.), floor(uSlider));
+		vec2 direction = vec2(cos(a),sin(a)) - corner;
+
+		p.xz +=  ((corner * ringCircle) + (direction * side_offset)) * uSlider1;
+	}
+
+	p.y -= 15.;
+	
+	gl_Position = uCamera * vec4(p, 1);
+	
+	col = min(col,vec3(0.1));
+	col = normalize(col) * 0.5 + 0.5;
+	
+	v_color = vec4(col, 1);
+}		</script>
+		<script id="uBufferFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+varying vec4 v_color; // Current vertex color
+uniform float uCountVertex; // Count vertex for range operations on vertexId
+uniform mat4 uCamera;
+uniform float uSlider;
+uniform float uSlider1;
+uniform vec2 uSlider2;
+uniform float uSlider3;
+uniform float uSlider4;
+uniform float uSlider6;
+uniform float uTime;
+void main()
+{
+	gl_FragColor = v_color;
+}		</script>
+		<script type="text/javascript" src="gl-matrix-min.js"></script>
+		<script type="text/javascript" src="dat.gui.min.js"></script>
+		<script>
+			if (!window.requestAnimationFrame)
+			{
+				window.requestAnimationFrame = (function()
+				{
+					return window.webkitRequestAnimationFrame ||
+						window.mozRequestAnimationFrame ||
+						window.oRequestAnimationFrame ||
+						window.msRequestAnimationFrame ||
+					function(callback, element)
+					{
+						window.setTimeout(callback, 1000 / 60);
+					};
+				})();
+			}
+			if (!Date.now)
+			{
+				Date.now = function()
+				{
+					return +new Date();
+				};
+			}
+			var DEGTORAD = 0.0174532925199432957;
+			var PI = 3.14159265359;
+			var mouse = { leftPressed : false, rightPressed : false, lastX : 0.0, lastY : 0.0, mouseLeftX : 0.0, mouseLeftY : 0.0 };
+			var parameters = { quality : 1.0, startTime: Date.now(), time : 0, uCamera : mat4.create(), fov : 45., rotX : 0.5, rotY : 0.5, zoom : 100.0, screenWidth : 0, screenHeight : 0, countPoints : 39385, uSlider : 6.92, uSlider1 : 2, uSlider2_x : 10, uSlider2_y : 0, uTimeFactor : 10.0 };
+			var gui = new dat.GUI({ height: 5 * 32 - 1 });
+			
+			var qualityController = gui.add(parameters, 'quality', 0.5, 10);
+			qualityController.onChange(function(value) { onWindowResize(); });
+			
+			var pointsController = gui.add(parameters, 'countPoints', 0, 1000000);
+			pointsController.onChange(function(value) 
+			{ 
+				programs.uBuffer.mesh = createPointsModel();
+			});
+			
+			var ActionGui = function() { this.reset = function() { onReset(); }; };
+			var ActionGuiObject = new ActionGui(); 
+			
+			gui.add(ActionGuiObject, 'reset'); 
+			
+			var cameraFov = gui.add(parameters, 'fov', 0, 180);
+			cameraFov.onChange(function(value) { updateCam(); });
+			
+			gui.add(parameters, 'uSlider', 3, 10);
+			gui.add(parameters, 'uSlider1', 0, 3);
+			gui.add(parameters, 'uSlider2_x', 0, 10);
+			gui.add(parameters, 'uSlider2_y', 0, 5);
+			//gui.add(parameters, 'uSlider3', 1, 10);
+			//gui.add(parameters, 'uSlider4', 3150, 3180);
+			//gui.add(parameters, 'uSlider6', 0, 3500);
+			gui.add(parameters, 'uTimeFactor');
+			
+			var canvas, gl, buffer, quadMesh, screenVertexPosition, resizer = {}, programs = {},
+			surface = { centerX: 0, centerY : 0, width : 1, height : 1, isPanning : false, isZooming : false, lastX : 0, lastY : 0 },
+			frontTarget, backTarget, screenProgram, getWebGL;
+			init();
+			if (gl)
+			{
+				animate();
+			}
+			function init()
+			{
+				if (!document.addEventListener)
+				{
+					document.location = 'http://get.webgl.org/';
+					return;
+				}
+				canvas = document.createElement('canvas');
+				canvas.style.display = 'block';
+				document.body.appendChild(canvas);
+				try
+				{
+					gl = canvas.getContext('experimental-webgl', { preserveDrawingBuffer: true });
+				}
+				catch (error)
+				{
+					console.error(error);
+				}
+				if (!gl)
+				{
+					alert("WebGL not supported, but code will be shown.");
+				}
+				else
+				{
+					gl.getExtension('OES_standard_derivatives'); // enable dFdx, dFdy, fwidth
+					
+					resizer.isResizing = false;
+					resizer.currentWidth = 100;
+					resizer.currentHeight = 100;
+					resizer.minWidth = 100;
+					resizer.minHeight = 100;
+					resizer.maxWidth = 100;
+					resizer.maxHeight = 100;
+					
+					canvas.addEventListener( 'mousedown', onMouseDown, false );
+					canvas.addEventListener( 'mouseup', onMouseUp, false );
+					canvas.addEventListener( 'mousemove', onMouseMove, false );
+					canvas.addEventListener( 'contextmenu', onContextMenu, false );
+					
+					quadMesh = createQuadModel();
+					
+					// uBuffer
+					programs.uBuffer = compile('uBufferVertex', 'uBufferFragment');
+					programs.uBuffer.mesh = createPointsModel();
+					programs.uBuffer.vertexId = gl.getAttribLocation(programs.uBuffer, "vertexId");
+					cacheUniformLocation(programs.uBuffer, 'uCamera');
+					cacheUniformLocation(programs.uBuffer, 'uSlider');
+					cacheUniformLocation(programs.uBuffer, 'uSlider1');
+					cacheUniformLocation(programs.uBuffer, 'uSlider2');
+					//cacheUniformLocation(programs.uBuffer, 'uSlider3');
+					//cacheUniformLocation(programs.uBuffer, 'uSlider4');
+					//cacheUniformLocation(programs.uBuffer, 'uSlider6');
+					cacheUniformLocation(programs.uBuffer, 'uTime');
+					cacheUniformLocation(programs.uBuffer, 'uTimeFactor');
+					
+					onWindowResize();
+					window.addEventListener('resize', onWindowResize, false);
+					compileScreenProgram();
+				}
+			}
+			function onMouseDown( event ) 
+			{
+				mouse.mouseLeftX = event.clientX;
+				mouse.mouseLeftY = event.clientY;
+				
+				if (event.button == 0) // left button pressed
+				{
+					mouse.rightPressed = false; // unset
+					mouse.leftPressed = true;	// set
+				}
+				else if (event.button == 2) // right button pressed
+				{
+					mouse.leftPressed = false;	// unset
+					mouse.rightPressed = true;	// set
+				}
+				
+				event.preventDefault();
+			}
+			function onMouseUp( event ) 
+			{
+				mouse.mouseLeftX = event.clientX;
+				mouse.mouseLeftY = event.clientY;
+				
+				mouse.leftPressed = false;	// unset
+				mouse.rightPressed = false;	// unset
+
+				event.preventDefault();
+			}
+			function onMouseMove( event ) 
+			{
+				if (mouse.leftPressed == true || mouse.rightPressed == true)
+				{
+					mouse.lastX = mouse.mouseLeftX;
+					mouse.lastY = mouse.mouseLeftY;
+						
+					mouse.mouseLeftX = event.clientX;
+					mouse.mouseLeftY = event.clientY;
+					
+					if (mouse.leftPressed == true) // left button pressed
+					{
+						parameters.rotX += (mouse.mouseLeftX - mouse.lastX) * DEGTORAD;
+						if (parameters.rotX < -PI)  parameters.rotX = PI;
+						if (parameters.rotX > PI)  parameters.rotX = -PI;
+
+						parameters.rotY += (mouse.mouseLeftY - mouse.lastY) * DEGTORAD;
+						if (parameters.rotY < -PI)  parameters.rotY = PI;
+						if (parameters.rotY > PI)  parameters.rotY = -PI;
+								
+						updateCam();
+					} 
+					else if (mouse.rightPressed == true) // right button pressed
+					{
+						parameters.zoom += (mouse.mouseLeftY - mouse.lastY) * 0.5;
+						
+						updateCam();
+					}
+				}
+
+				event.preventDefault();
+			}
+			function onContextMenu(event)
+			{
+				event.preventDefault(); // deactivate context menu
+			}
+			function updateCam()
+			{
+				parameters.uCamera = getCamera(parameters.fov, parameters.rotX, parameters.rotY, parameters.zoom);
+			}
+			function getCamera(Fov, RotX, RotY, Zoom)
+			{
+				var matrixMVP = mat4.create();
+
+				// Projection Matrix
+				var projection = mat4.create();
+				mat4.perspective( projection, Fov * 3.14159 / 180., parameters.screenWidth / parameters.screenHeight,0.1, 10000 );
+				//matrixMVP = projection;
+				mat4.multiply( matrixMVP, matrixMVP, projection );
+
+				// Camera Matrix
+				var view = mat4.create();
+				mat4.lookAt( view, [0,0,Zoom], [0,0,0], [0,1,0] );
+				//matrixMVP *= view;
+				mat4.multiply( matrixMVP, matrixMVP, view );
+
+				// Model matrix : an identity matrix (model will be at the origin)
+				var model = mat4.create();
+				mat4.rotate( model, model, RotY, [1.0,0.0,0.0] );
+				mat4.rotate( model, model, RotX, [0.0,1.0,0.0] );
+				//matrixMVP *= Model;
+				mat4.multiply( matrixMVP, matrixMVP, model );
+				
+				return matrixMVP;
+			}
+			function createQuadModel()
+			{
+				var mesh = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0]), gl.STATIC_DRAW);
+				return mesh;
+			}
+			function createPointsModel()
+			{
+				var mesh = gl.createBuffer();
+				var vertexIndexArray = new Float32Array(parameters.countPoints);
+				for (i = 0; i < parameters.countPoints; i++)
+				{
+					vertexIndexArray[i] = i;
+				}
+				gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
+				gl.bufferData(gl.ARRAY_BUFFER, vertexIndexArray, gl.STATIC_DRAW);
+				return mesh;
+			}
+			function compile(vertShaderName, fragShaderName)
+			{
+				if (!gl)
+				{
+					if (!getWebGL)
+					{
+						getWebGL = true;
+						console.error("pas de webgl");
+					}
+					return null;
+				}
+				var program = gl.createProgram();
+				var vertex = document.getElementById(vertShaderName).textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fragment = document.getElementById(fragShaderName).textContent;
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				if (vs == null || fs == null) return null;
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+				{
+					var error = gl.getProgramInfoLog(program);
+					console.error(error);
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return null;
+				}
+				return program;
+			}
+			function compileScreenProgram()
+			{
+				if (!gl) { return; }
+				var program = gl.createProgram();
+				var fragment = document.getElementById('screenFragShader').textContent;
+				var vertex = document.getElementById('screenVertShader').textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) 
+				{
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return;
+				}
+				screenProgram = program;
+				gl.useProgram(screenProgram);
+				cacheUniformLocation(program, 'resolution');
+				cacheUniformLocation(program, 'texture');
+				screenVertexPosition = gl.getAttribLocation(screenProgram, "position");
+				gl.enableVertexAttribArray(screenVertexPosition);
+			}
+			function cacheUniformLocation(program, label)
+			{
+				if (program.uniformsCache === undefined)
+				{
+					program.uniformsCache = {};
+				}
+				program.uniformsCache[label] = gl.getUniformLocation(program, label);
+			}
+			function createFBO(width, height)
+			{
+				var fbo = {};
+				fbo.framebuffer = gl.createFramebuffer();
+				fbo.renderbuffer = gl.createRenderbuffer();
+				fbo.texture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, fbo.texture);
+				var texFloat = gl.getExtension('OES_texture_float');
+				if (texFloat)
+				{
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.FLOAT, null);
+					var texFloatFiltering = gl.getExtension('OES_texture_float_linear');
+					if (texFloatFiltering)
+					{
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+					}
+					else
+					{
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					}
+				}
+				else
+				{
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				}
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fbo.texture, 0);
+				
+				// set up renderbuffer
+				gl.bindRenderbuffer( gl.RENDERBUFFER, fbo.renderbuffer );
+				gl.renderbufferStorage( gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height );
+				gl.framebufferRenderbuffer( gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fbo.renderbuffer );
+
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindRenderbuffer( gl.RENDERBUFFER, null );
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				return fbo;
+			}
+			function createPipeline(width, height)
+			{
+				var pipeline = {};
+				pipeline.front = createFBO(width, height);
+				pipeline.back = createFBO(width, height);
+				return pipeline;
+			}
+			function createShader(src, type)
+			{
+				var shader = gl.createShader(type);
+				var line, lineNum, lineError, index = 0, indexEnd;
+				gl.shaderSource(shader, src);
+				gl.compileShader(shader);
+				if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+				{
+					var error = gl.getShaderInfoLog(shader);
+					console.error(error);
+					return null;
+				}
+				return shader;
+			}
+			function onReset()
+			{
+				// uBuffer Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.uBuffer.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// uBuffer Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.uBuffer.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				parameters.startTime = Date.now();
+				parameters.frame = 0;
+				
+				updateCam();
+			}
+			function onWindowResize(event)
+			{
+				canvas.width = window.innerWidth / parameters.quality;
+				canvas.height = window.innerHeight / parameters.quality;
+				/*var potwidth = 2;
+				while(potwidth < canvas.width) potwidth *= 2;
+				var potheight = 2;
+				while(potheight < canvas.height) potheight *= 2;
+				canvas.width = potwidth;
+				canvas.height = potheight;*/
+				canvas.style.width = window.innerWidth + 'px';
+				canvas.style.height = window.innerHeight + 'px';
+				parameters.screenWidth = canvas.width;
+				parameters.screenHeight = canvas.height;
+				if (gl)
+				{
+					gl.viewport(0, 0, canvas.width, canvas.height);
+					programs.uBuffer.pipeline = createPipeline(parameters.screenWidth, parameters.screenHeight);
+					onReset();
+				}
+			}
+			function animate()
+			{
+				requestAnimationFrame(animate);
+				render();
+			}
+			function render()
+			{
+				parameters.time = Date.now() - parameters.startTime;
+				
+				// uBuffer
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.uBuffer.pipeline.front.framebuffer);
+				gl.useProgram(programs.uBuffer);
+				gl.uniformMatrix4fv(programs.uBuffer.uniformsCache['uCamera'], false, parameters.uCamera);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uSlider'], parameters.uSlider);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uSlider1'], parameters.uSlider1);
+				gl.uniform2f(programs.uBuffer.uniformsCache['uSlider2'], parameters.uSlider2_x ,parameters.uSlider2_y);
+				//gl.uniform1f(programs.uBuffer.uniformsCache['uSlider3'], parameters.uSlider3);
+				//gl.uniform1f(programs.uBuffer.uniformsCache['uSlider4'], parameters.uSlider4);
+				//gl.uniform1f(programs.uBuffer.uniformsCache['uSlider6'], parameters.uSlider6);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uTime'], parameters.time / 1000);
+				gl.uniform1f(programs.uBuffer.uniformsCache['uTimeFactor'], parameters.uTimeFactor);
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.uBuffer.mesh);
+				gl.vertexAttribPointer(programs.uBuffer.vertexId, 1, gl.FLOAT, false, 0, 0);
+				gl.enable(gl.DEPTH_TEST);
+				gl.depthFunc(gl.LEQUAL);
+				gl.clearColor(0.0, 0.0, 0.0, 1.0);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+				gl.drawArrays(gl.TRIANGLES, 0, parameters.countPoints);
+				gl.disable(gl.DEPTH_TEST);
+				
+				// Set uniforms for screen shader
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				gl.useProgram(screenProgram);
+				gl.uniform2f(screenProgram.uniformsCache['resolution'], parameters.screenWidth, parameters.screenHeight);
+				gl.uniform1i(screenProgram.uniformsCache['texture'], 0);
+				gl.bindBuffer(gl.ARRAY_BUFFER, quadMesh);
+				gl.vertexAttribPointer(screenVertexPosition, 2, gl.FLOAT, false, 0, 0);
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, programs.uBuffer.pipeline.back.texture);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Buffer Switching
+				var tmp = programs.uBuffer.pipeline.front;
+				programs.uBuffer.pipeline.front = programs.uBuffer.pipeline.back;
+				programs.uBuffer.pipeline.back = tmp;
+				parameters.frame++;
+			}
+		</script>
+		<canvas width="960" height="455" style="display: block; width: 1920px; height: 910px;"/>
+	</body>
+</html>

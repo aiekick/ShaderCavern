@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+	<html lang = "en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Title</title>
+		<meta http - equiv = "X-UA-Compatible" content = "IE=Edge,chrome=1">
+		<style>
+			body
+			{
+				background - color: #000000;
+				margin : 0;
+				padding : 0;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body style="cursor: default;">
+		<script id="screenVertShader" type="x-shader/x-vertex">
+attribute vec3 position;
+void main()
+{
+	gl_Position = vec4(position, 1.0);
+}
+		</script>
+		<script id="screenFragShader" type="x-shader/x-fragment">
+#ifdef GL_ES
+	precision highp float;
+#endif
+uniform vec2 resolution;
+uniform sampler2D texture;
+void main()
+{
+	vec2 uv = gl_FragCoord.xy / resolution.xy;
+	gl_FragColor = texture2D(texture, uv);
+}
+		</script>
+		<script id="Buf_BVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform sampler2D Buf_A;
+uniform vec2 Buf_ASize;
+uniform int iFrame2;
+uniform vec4 iMouse;
+uniform vec3 iResolution2;
+uniform float iTime;
+uniform float iTimeDelta2;
+void main()
+{
+	gl_Position = vec4(a_position.xy, 0.0, 1.0);
+}
+		</script>
+		<script id="Buf_BFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform sampler2D Buf_A;
+uniform vec2 Buf_ASize;
+uniform int iFrame2;
+uniform vec4 iMouse;
+uniform vec3 iResolution2;
+uniform float iTime;
+uniform float iTimeDelta2;
+               struct Channel {vec3 resolution; float time;};
+ void mainImage(inout vec4 c, in vec2 f);
+
+
+// based on the tuto here : http://www.karlsims.com/rd.html
+
+vec2 size;
+
+vec2 cell(vec2 fragCoord, vec2 pixel)
+{
+    // remove screen border of domain
+    if (fragCoord.x + pixel.x > iResolution2.x) fragCoord.x = 0.;
+    if (fragCoord.y + pixel.y > iResolution2.y) fragCoord.y = 0.;
+    if (fragCoord.x + pixel.x < 0.0) fragCoord.x = iResolution2.x;
+    if (fragCoord.y + pixel.y < 0.0) fragCoord.y = iResolution2.y;
+    
+	vec2 uv = (fragCoord + pixel) / iResolution2.xy;
+    return texture2D(Buf_A, uv).rg;
+}
+
+vec2 laplacian2D(vec2 fragCoord) 
+{
+    float st = 1.;
+    return 
+        cell(fragCoord, vec2(0., -st)) * .2 +
+        cell(fragCoord, vec2(0., st)) * .2 +
+        cell(fragCoord, vec2(st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, -st)) * .05 +
+        cell(fragCoord, vec2(-st, st)) * .05 +
+        cell(fragCoord, vec2(st, -st)) * .05 +
+        cell(fragCoord, vec2(st, st)) * .05 -
+        cell(fragCoord, vec2(0., 0.));
+}
+
+void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    //size = 
+    
+    vec2 uv = fragCoord / iResolution2.xy;
+    
+    {
+        vec2 diffusionCoef = vec2(1,.3);
+        float feedCoef = 0.05;
+        float killCoef = 0.062;
+        
+        vec2 ab = cell(fragCoord, vec2(0,0));
+        vec2 lp = laplacian2D(fragCoord);
+        
+        float reaction = ab.x * ab.y * ab.y;
+        vec2 diffusion = diffusionCoef * lp;
+        float feed = feedCoef * (1. - ab.x);
+        float kill = (feedCoef + killCoef) * ab.y;
+        
+        ab += diffusion + vec2(feed - reaction, reaction - kill);
+        
+    	fragColor = vec4(clamp(ab,0.,1e4),0.0,1.0);
+    }
+}
+
+
+
+void main(void)
+{
+	vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+	mainImage(color, gl_FragCoord.xy);
+	//color.a = 1.0;
+	gl_FragColor = color;
+}
+		</script>
+		<script id="Buf_CVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform sampler2D Buf_B;
+uniform vec2 Buf_BSize;
+uniform int iFrame3;
+uniform vec4 iMouse;
+uniform vec3 iResolution3;
+uniform float iTime;
+uniform float iTimeDelta3;
+void main()
+{
+	gl_Position = vec4(a_position.xy, 0.0, 1.0);
+}
+		</script>
+		<script id="Buf_CFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform sampler2D Buf_B;
+uniform vec2 Buf_BSize;
+uniform int iFrame3;
+uniform vec4 iMouse;
+uniform vec3 iResolution3;
+uniform float iTime;
+uniform float iTimeDelta3;
+               struct Channel {vec3 resolution; float time;};
+ void mainImage(inout vec4 c, in vec2 f);
+
+
+// based on the tuto here : http://www.karlsims.com/rd.html
+
+vec2 size;
+
+vec2 cell(vec2 fragCoord, vec2 pixel)
+{
+    // remove screen border of domain
+    if (fragCoord.x + pixel.x > iResolution3.x) fragCoord.x = 0.;
+    if (fragCoord.y + pixel.y > iResolution3.y) fragCoord.y = 0.;
+    if (fragCoord.x + pixel.x < 0.0) fragCoord.x = iResolution3.x;
+    if (fragCoord.y + pixel.y < 0.0) fragCoord.y = iResolution3.y;
+    
+	vec2 uv = (fragCoord + pixel) / iResolution3.xy;
+    return texture2D(Buf_B, uv).rg;
+}
+
+vec2 laplacian2D(vec2 fragCoord) 
+{
+    float st = 1.;
+    return 
+        cell(fragCoord, vec2(0., -st)) * .2 +
+        cell(fragCoord, vec2(0., st)) * .2 +
+        cell(fragCoord, vec2(st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, -st)) * .05 +
+        cell(fragCoord, vec2(-st, st)) * .05 +
+        cell(fragCoord, vec2(st, -st)) * .05 +
+        cell(fragCoord, vec2(st, st)) * .05 -
+        cell(fragCoord, vec2(0., 0.));
+}
+
+void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    //size = 
+    
+    vec2 uv = fragCoord / iResolution3.xy;
+    
+    {
+        vec2 diffusionCoef = vec2(1,.3);
+        float feedCoef = 0.05;
+        float killCoef = 0.062;
+        
+        vec2 ab = cell(fragCoord, vec2(0,0));
+        vec2 lp = laplacian2D(fragCoord);
+        
+        float reaction = ab.x * ab.y * ab.y;
+        vec2 diffusion = diffusionCoef * lp;
+        float feed = feedCoef * (1. - ab.x);
+        float kill = (feedCoef + killCoef) * ab.y;
+        
+        ab += diffusion + vec2(feed - reaction, reaction - kill);
+        
+    	fragColor = vec4(clamp(ab,0.,1e4),0.0,1.0);
+    }
+}
+
+void main(void)
+{
+	vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+	mainImage(color, gl_FragCoord.xy);
+	//color.a = 1.0;
+	gl_FragColor = color;
+}
+		</script>
+		<script id="Buf_AVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform sampler2D Buf_D;
+uniform int iFrame1;
+uniform vec4 iMouse;
+uniform vec3 iResolution1;
+uniform float iTime;
+uniform float iTimeDelta1;
+uniform sampler2D uTex2D;
+uniform vec2 uTex2DSize;
+void main()
+{
+	gl_Position = vec4(a_position.xy, 0.0, 1.0);
+}
+		</script>
+		<script id="Buf_AFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform sampler2D Buf_D;
+uniform int iFrame1;
+uniform vec4 iMouse;
+uniform vec3 iResolution1;
+uniform float iTime;
+uniform float iTimeDelta1;
+uniform sampler2D uTex2D;
+uniform vec2 uTex2DSize;
+               struct Channel {vec3 resolution; float time;};
+ void mainImage(inout vec4 c, in vec2 f);
+
+
+// based on the tuto here : http://www.karlsims.com/rd.html
+
+vec2 size;
+
+vec2 cell(vec2 fragCoord, vec2 pixel)
+{
+    // remove screen border of domain
+    if (fragCoord.x + pixel.x > iResolution1.x) fragCoord.x = 0.;
+    if (fragCoord.y + pixel.y > iResolution1.y) fragCoord.y = 0.;
+    if (fragCoord.x + pixel.x < 0.0) fragCoord.x = iResolution1.x;
+    if (fragCoord.y + pixel.y < 0.0) fragCoord.y = iResolution1.y;
+    
+	vec2 uv = (fragCoord + pixel) / iResolution1.xy;
+    return texture2D(Buf_D, uv).rg;
+}
+
+vec2 laplacian2D(vec2 fragCoord) 
+{
+    float st = 1.;
+    return 
+        cell(fragCoord, vec2(0., -st)) * .2 +
+        cell(fragCoord, vec2(0., st)) * .2 +
+        cell(fragCoord, vec2(st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, -st)) * .05 +
+        cell(fragCoord, vec2(-st, st)) * .05 +
+        cell(fragCoord, vec2(st, -st)) * .05 +
+        cell(fragCoord, vec2(st, st)) * .05 -
+        cell(fragCoord, vec2(0., 0.));
+}
+
+float pn(vec3 p) 
+{
+   vec3 i = floor(p);
+   vec4 a = dot(i, vec3(1., 57., 21.)) + vec4(0., 57., 21., 78.);
+   vec3 f = cos((p-i)*3.14159)*(-.5) + .5;
+   a = mix(sin(cos(a)*a), sin(cos(1.+a)*(1.+a)), f.x);
+   a.xy = mix(a.xz, a.yw, f.y);
+   return mix(a.x, a.y, f.z);
+}
+
+void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    //size = 
+    
+    vec2 uv = fragCoord / iResolution1.xy;
+    
+    fragColor = vec4(0,0,0,0);
+	
+    if (iFrame1 < 120)
+    {
+        //fragColor = vec4(pn(uv.xyy*10.), pn(uv.yxx*10.),1,1).rgrg;
+        fragColor = texture2D(uTex2D, uv).rgrg;
+    }
+    else
+    {
+        vec2 diffusionCoef = vec2(1,.3);
+        float feedCoef = 0.05;
+        float killCoef = 0.062;
+        
+        vec2 ab = cell(fragCoord, vec2(0,0));
+        vec2 lp = laplacian2D(fragCoord);
+        
+        float reaction = ab.x * ab.y * ab.y;
+        vec2 diffusion = diffusionCoef * lp;
+        float feed = feedCoef * (1. - ab.x);
+        float kill = (feedCoef + killCoef) * ab.y;
+        
+        ab += diffusion + vec2(feed - reaction, reaction - kill);
+        
+    	fragColor = vec4(clamp(ab,0.,1e4),0.0,1.0);
+    }
+}
+
+
+
+void main(void)
+{
+	vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+	mainImage(color, gl_FragCoord.xy);
+	//color.a = 1.0;
+	gl_FragColor = color;
+}
+		</script>
+		<script id="Buf_DVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform sampler2D Buf_C;
+uniform vec2 Buf_CSize;
+uniform int iFrame4;
+uniform vec4 iMouse;
+uniform vec3 iResolution4;
+uniform float iTime;
+uniform float iTimeDelta4;
+void main()
+{
+	gl_Position = vec4(a_position.xy, 0.0, 1.0);
+}
+		</script>
+		<script id="Buf_DFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform sampler2D Buf_C;
+uniform vec2 Buf_CSize;
+uniform int iFrame4;
+uniform vec4 iMouse;
+uniform vec3 iResolution4;
+uniform float iTime;
+uniform float iTimeDelta4;
+               struct Channel {vec3 resolution; float time;};
+ void mainImage(inout vec4 c, in vec2 f);
+
+
+// based on the tuto here : http://www.karlsims.com/rd.html
+
+vec2 size;
+
+vec2 cell(vec2 fragCoord, vec2 pixel)
+{
+    // remove screen border of domain
+    if (fragCoord.x + pixel.x > iResolution4.x) fragCoord.x = 0.;
+    if (fragCoord.y + pixel.y > iResolution4.y) fragCoord.y = 0.;
+    if (fragCoord.x + pixel.x < 0.0) fragCoord.x = iResolution4.x;
+    if (fragCoord.y + pixel.y < 0.0) fragCoord.y = iResolution4.y;
+    
+	vec2 uv = (fragCoord + pixel) / iResolution4.xy;
+    return texture2D(Buf_C, uv).rg;
+}
+
+vec2 laplacian2D(vec2 fragCoord) 
+{
+    float st = 1.;
+    return 
+        cell(fragCoord, vec2(0., -st)) * .2 +
+        cell(fragCoord, vec2(0., st)) * .2 +
+        cell(fragCoord, vec2(st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, 0.)) * .2 +
+        cell(fragCoord, vec2(-st, -st)) * .05 +
+        cell(fragCoord, vec2(-st, st)) * .05 +
+        cell(fragCoord, vec2(st, -st)) * .05 +
+        cell(fragCoord, vec2(st, st)) * .05 -
+        cell(fragCoord, vec2(0., 0.));
+}
+
+void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    //size = 
+    
+    vec2 uv = fragCoord / iResolution4.xy;
+    
+    {
+        vec2 diffusionCoef = vec2(1,.3);
+        float feedCoef = 0.05;
+        float killCoef = 0.062;
+        
+        vec2 ab = cell(fragCoord, vec2(0,0));
+        vec2 lp = laplacian2D(fragCoord);
+        
+        float reaction = ab.x * ab.y * ab.y;
+        vec2 diffusion = diffusionCoef * lp;
+        float feed = feedCoef * (1. - ab.x);
+        float kill = (feedCoef + killCoef) * ab.y;
+        
+        ab += diffusion + vec2(feed - reaction, reaction - kill);
+        
+    	fragColor = vec4(clamp(ab,0.,1e4),0.0,1.0);
+    }
+}
+
+void main(void)
+{
+	vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+	mainImage(color, gl_FragCoord.xy);
+	//color.a = 1.0;
+	gl_FragColor = color;
+}
+		</script>
+		<script id="ImageVertex" type="x-shader/x-vertex">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+attribute vec2 a_position; // Current vertex position
+uniform sampler2D Buf_A;
+uniform vec2 Buf_ASize;
+uniform int iFrame;
+uniform vec4 iMouse;
+uniform vec3 iResolution;
+uniform float iTime;
+uniform float iTimeDelta;
+void main()
+{
+	gl_Position = vec4(a_position.xy, 0.0, 1.0);
+}
+		</script>
+		<script id="ImageFragment" type="x-shader/x-fragment">
+// Glsl 2.0 ES 
+#version 100
+#line 1
+#ifdef GL_ES
+	precision highp float;
+	precision highp int;
+#endif
+uniform sampler2D Buf_A;
+uniform vec2 Buf_ASize;
+uniform int iFrame;
+uniform vec4 iMouse;
+uniform vec3 iResolution;
+uniform float iTime;
+uniform float iTimeDelta;
+               struct Channel {vec3 resolution; float time;};
+ void mainImage(inout vec4 c, in vec2 f);
+
+
+/*void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = fragCoord.xy / iResolution.xy;
+    fragColor = texture(Buf_A, mod(uv*2.,1.)).bgba;
+}*/
+
+vec2 cell(vec2 fragCoord, vec2 pixel)
+{
+    // remove screen border of domain
+    if (fragCoord.x + pixel.x > iResolution.x) fragCoord.x = 0.;
+    if (fragCoord.y + pixel.y > iResolution.y) fragCoord.y = 0.;
+    if (fragCoord.x + pixel.x < 0.0) fragCoord.x = iResolution.x;
+    if (fragCoord.y + pixel.y < 0.0) fragCoord.y = iResolution.y;
+    
+	vec2 uv = (fragCoord + pixel) / iResolution.xy / 4.;
+    uv += iTime * 0.02;
+    uv = mod(uv * 2., 1.);// for repeat the texture
+    
+    return texture2D(Buf_A, uv).rg;
+}
+
+void mainImage( inout vec4 fragColor, in vec2 fragCoord )
+{
+    float a = mod(iTime,3.14159*2.);
+    
+    // thanks to shane for this lighting model
+
+    float c = cell(fragCoord, vec2(0,0)).g;
+    float c2 = cell(fragCoord, vec2(cos(a),sin(a))).g;
+    
+    vec3 col = vec3(1)*c*c;
+    col += vec3(.2, .4, 1)*max(c2*c2*c2 - c*c*c, 0.0)*iResolution.y*.2;
+    col += vec3(1, .25, .05)*max(c - c2, 0.0)*iResolution.y*.1;
+    
+    fragColor = sqrt(vec4(col, 1.));
+}
+
+void main(void)
+{
+	vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+	mainImage(color, gl_FragCoord.xy);
+	color.a = 1.0;
+	gl_FragColor = color;
+}
+		</script>
+		<script type="text/javascript" src="dat.gui.min.js"></script>
+		<script>
+			if (!window.requestAnimationFrame)
+			{
+				window.requestAnimationFrame = (function()
+				{
+					return window.webkitRequestAnimationFrame ||
+						window.mozRequestAnimationFrame ||
+						window.oRequestAnimationFrame ||
+						window.msRequestAnimationFrame ||
+					function(callback, element)
+					{
+						window.setTimeout(callback, 1000 / 60);
+					};
+				})();
+			}
+			if (!Date.now)
+			{
+				Date.now = function()
+				{
+					return +new Date();
+				};
+			}
+			var mouseStruct = { leftPressed: false, rightPressed : false, lastX : 0.0, lastY : 0.0, mouseLeftX : 0.0, mouseLeftY : 0.0 };
+			var paramStruct = { quality : 1.5, startTime: Date.now(), time : 0, screenSize : [0.0, 0.0], timeFactor : 1.0, frame : 0, }
+			var uniformStruct = { uTex2D : {}, iMouse : [0.0, 0.0, 0.0, 0.0], };
+			
+			var gui = new dat.GUI({ height: 5 * 32 - 1 });
+			var qualityController = gui.add(paramStruct, 'quality', 0.5, 10);
+			qualityController.onChange(function(value) { onWindowResize(); });
+			
+			var ActionGui = function() { this.reset = function() { onReset(); }; };
+			var ActionGuiObject = new ActionGui(); 
+			gui.add(ActionGuiObject, 'reset'); 
+			
+			gui.add(paramStruct, 'timeFactor'); 
+			
+			var canvas, gl, buffer, quadMesh, screenVertexPosition, resizer = {}, programs = {},
+			frontTarget, backTarget, screenProgram, getWebGL;
+			init();
+			if (gl)
+			{
+				animate();
+			}
+			function init()
+			{
+				if (!document.addEventListener)
+				{
+					document.location = 'http://get.webgl.org/';
+					return;
+				}
+				canvas = document.createElement('canvas');
+				canvas.style.display = 'block';
+				document.body.appendChild(canvas);
+				try
+				{
+					gl = canvas.getContext('experimental-webgl', { preserveDrawingBuffer: true });
+				}
+				catch (error)
+				{
+					console.error(error);
+				}
+				if (!gl)
+				{
+					alert("WebGL not supported, but code will be shown.");
+				}
+				else
+				{
+					gl.getExtension('OES_standard_derivatives'); // enable dFdx, dFdy, fwidth
+					
+					resizer.isResizing = false;
+					resizer.currentWidth = 100;
+					resizer.currentHeight = 100;
+					resizer.minWidth = 100;
+					resizer.minHeight = 100;
+					resizer.maxWidth = 100;
+					resizer.maxHeight = 100;
+					
+					canvas.addEventListener('mousedown', onMouseDown, false);
+					canvas.addEventListener('mouseup', onMouseUp, false);
+					canvas.addEventListener('mousemove', onMouseMove, false);
+					canvas.addEventListener('contextmenu', onContextMenu, false);
+					quadMesh = createQuadModel();
+					
+					// Buf_B
+					programs.Buf_B = compile('Buf_BVertex', 'Buf_BFragment');
+					programs.Buf_B.mesh = quadMesh;
+					programs.Buf_B.a_position = gl.getAttribLocation(programs.Buf_B, "a_position");
+					cacheUniformLocation(programs.Buf_B, 'Buf_A');
+					cacheUniformLocation(programs.Buf_B, 'Buf_ASize');
+					cacheUniformLocation(programs.Buf_B, 'iFrame2');
+					cacheUniformLocation(programs.Buf_B, 'iMouse');
+					cacheUniformLocation(programs.Buf_B, 'iResolution2');
+					cacheUniformLocation(programs.Buf_B, 'iTime');
+					cacheUniformLocation(programs.Buf_B, 'iTimeDelta2');
+					
+					// Buf_C
+					programs.Buf_C = compile('Buf_CVertex', 'Buf_CFragment');
+					programs.Buf_C.mesh = quadMesh;
+					programs.Buf_C.a_position = gl.getAttribLocation(programs.Buf_C, "a_position");
+					cacheUniformLocation(programs.Buf_C, 'Buf_B');
+					cacheUniformLocation(programs.Buf_C, 'Buf_BSize');
+					cacheUniformLocation(programs.Buf_C, 'iFrame3');
+					cacheUniformLocation(programs.Buf_C, 'iMouse');
+					cacheUniformLocation(programs.Buf_C, 'iResolution3');
+					cacheUniformLocation(programs.Buf_C, 'iTime');
+					cacheUniformLocation(programs.Buf_C, 'iTimeDelta3');
+					
+					// Buf_A
+					programs.Buf_A = compile('Buf_AVertex', 'Buf_AFragment');
+					programs.Buf_A.mesh = quadMesh;
+					programs.Buf_A.a_position = gl.getAttribLocation(programs.Buf_A, "a_position");
+					cacheUniformLocation(programs.Buf_A, 'Buf_D');
+					cacheUniformLocation(programs.Buf_A, 'iFrame1');
+					cacheUniformLocation(programs.Buf_A, 'iMouse');
+					cacheUniformLocation(programs.Buf_A, 'iResolution1');
+					cacheUniformLocation(programs.Buf_A, 'iTime');
+					cacheUniformLocation(programs.Buf_A, 'iTimeDelta1');
+					cacheUniformLocation(programs.Buf_A, 'uTex2D');
+					uniformStruct.uTex2D = LoadTexture("noise.png");
+					cacheUniformLocation(programs.Buf_A, 'uTex2DSize');
+					
+					// Buf_D
+					programs.Buf_D = compile('Buf_DVertex', 'Buf_DFragment');
+					programs.Buf_D.mesh = quadMesh;
+					programs.Buf_D.a_position = gl.getAttribLocation(programs.Buf_D, "a_position");
+					cacheUniformLocation(programs.Buf_D, 'Buf_C');
+					cacheUniformLocation(programs.Buf_D, 'Buf_CSize');
+					cacheUniformLocation(programs.Buf_D, 'iFrame4');
+					cacheUniformLocation(programs.Buf_D, 'iMouse');
+					cacheUniformLocation(programs.Buf_D, 'iResolution4');
+					cacheUniformLocation(programs.Buf_D, 'iTime');
+					cacheUniformLocation(programs.Buf_D, 'iTimeDelta4');
+					
+					// Image
+					programs.Image = compile('ImageVertex', 'ImageFragment');
+					programs.Image.mesh = quadMesh;
+					programs.Image.a_position = gl.getAttribLocation(programs.Image, "a_position");
+					cacheUniformLocation(programs.Image, 'Buf_A');
+					cacheUniformLocation(programs.Image, 'Buf_ASize');
+					cacheUniformLocation(programs.Image, 'iFrame');
+					cacheUniformLocation(programs.Image, 'iMouse');
+					cacheUniformLocation(programs.Image, 'iResolution');
+					cacheUniformLocation(programs.Image, 'iTime');
+					cacheUniformLocation(programs.Image, 'iTimeDelta');
+					
+					onWindowResize();
+					window.addEventListener('resize', onWindowResize, false);
+					compileScreenProgram();
+				}
+			}
+			function LoadTexture(url) 
+			{
+				var tex = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, tex);
+				// Fill the texture with a 1x1 blue pixel.
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+
+				// let's assume all images are not a power of 2
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+				var textureInfo = {
+				  width: 1,   // we don't know the size until it loads
+				  height: 1,
+				  texture: tex,
+				};
+				
+				var img = new Image();
+				img.addEventListener('load', function() 
+				{
+					textureInfo.width = img.width;
+					textureInfo.height = img.height;
+					gl.bindTexture(gl.TEXTURE_2D, textureInfo.texture);
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				});
+				img.origin = "file://";
+				requestCORSIfNotSameOrigin(img, img.origin + url);
+				img.src = url;
+
+				return textureInfo;
+			}
+			function requestCORSIfNotSameOrigin(img, url) 
+			{
+				if ((new URL(url)).origin !== window.location.origin) 
+				{
+					img.crossOrigin = "";
+				}
+			}
+			function onMouseDown(event)
+			{
+				mouseStruct.mouseLeftX = event.clientX;
+				mouseStruct.mouseLeftY = event.clientY;
+				if (event.button == 0) // left button pressed
+				{
+					mouseStruct.rightPressed = false; // unset
+					mouseStruct.leftPressed = true;	// set
+				}
+				else if (event.button == 2) // right button pressed
+				{
+					mouseStructleftPressed = false;	// unset
+					mouseStruct.rightPressed = true;	// set
+				}
+				event.preventDefault();
+			}
+			function onMouseUp(event)
+			{
+				mouseStruct.mouseLeftX = event.clientX;
+				mouseStruct.mouseLeftY = event.clientY;
+				mouseStruct.leftPressed = false;	// unset
+				mouseStruct.rightPressed = false; // unset
+				uniformStruct.iMouse[2] = 0.0;
+				uniformStruct.iMouse[3] = 0.0;
+				event.preventDefault();
+			}
+			function onMouseMove(event)
+			{
+				if (mouseStruct.leftPressed == true || mouseStruct.rightPressed == true)
+				{
+					mouseStruct.lastX = mouseStruct.mouseLeftX;
+					mouseStruct.lastY = mouseStruct.mouseLeftY;
+					mouseStruct.mouseLeftX = event.clientX;
+					mouseStruct.mouseLeftY = event.clientY;
+					
+					if (mouseStruct.leftPressed == true) // left button pressed
+					{
+						uniformStruct.iMouse[0] = mouseStruct.mouseLeftX;
+						uniformStruct.iMouse[1] = paramStruct.screenSize[1] - mouseStruct.mouseLeftY;
+						uniformStruct.iMouse[2] = mouseStruct.mouseLeftX;
+						uniformStruct.iMouse[3] = paramStruct.screenSize[1] - mouseStruct.mouseLeftY;
+					}
+					else if (mouseStruct.rightPressed == true) // right button pressed
+					{
+					}
+				}
+				event.preventDefault();
+			}
+			function onContextMenu(event)
+			{
+				event.preventDefault(); // deactivate context menu
+			}
+			function createQuadModel()
+			{
+				var mesh = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0]), gl.STATIC_DRAW);
+				return mesh;
+			}
+			function compile(vertShaderName, fragShaderName)
+			{
+				if (!gl)
+				{
+					if (!getWebGL)
+					{
+						getWebGL = true;
+						console.error("pas de webgl");
+					}
+					return null;
+				}
+				var program = gl.createProgram();
+				var vertex = document.getElementById(vertShaderName).textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fragment = document.getElementById(fragShaderName).textContent;
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				if (vs == null || fs == null) return null;
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+				{
+					var error = gl.getProgramInfoLog(program);
+					console.error(error);
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return null;
+				}
+				return program;
+			}
+			function compileScreenProgram()
+			{
+				if (!gl) { return; }
+				var program = gl.createProgram();
+				var fragment = document.getElementById('screenFragShader').textContent;
+				var vertex = document.getElementById('screenVertShader').textContent;
+				var vs = createShader(vertex, gl.VERTEX_SHADER);
+				var fs = createShader(fragment, gl.FRAGMENT_SHADER);
+				gl.attachShader(program, vs);
+				gl.attachShader(program, fs);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) 
+				{
+					console.error('VALIDATE_STATUS: ' + gl.getProgramParameter(program, gl.VALIDATE_STATUS), 'ERROR: ' + gl.getError());
+					return;
+				}
+				screenProgram = program;
+				gl.useProgram(screenProgram);
+				cacheUniformLocation(program, 'resolution');
+				cacheUniformLocation(program, 'texture');
+				screenVertexPosition = gl.getAttribLocation(screenProgram, "position");
+				gl.enableVertexAttribArray(screenVertexPosition);
+			}
+			function cacheUniformLocation(program, label)
+			{
+				if (program.uniformsCache === undefined)
+				{
+					program.uniformsCache = {};
+				}
+				program.uniformsCache[label] = gl.getUniformLocation(program, label);
+			}
+			function createFBO(width, height)
+			{
+				var fbo = {};
+				fbo.framebuffer = gl.createFramebuffer();
+				fbo.texture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, fbo.texture);
+				var texFloat = gl.getExtension('OES_texture_float');
+				if (texFloat)
+				{
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.FLOAT, null);
+					var texFloatFiltering = gl.getExtension('OES_texture_float_linear');
+					if (texFloatFiltering)
+					{
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+					}
+					else
+					{
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					}
+				}
+				else
+				{
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				}
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fbo.texture, 0);
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				return fbo;
+			}
+			function createPipeline(width, height)
+			{
+				var pipeline = {};
+				pipeline.front = createFBO(width, height);
+				pipeline.back = createFBO(width, height);
+				return pipeline;
+			}
+			function createShader(src, type)
+			{
+				var shader = gl.createShader(type);
+				var line, lineNum, lineError, index = 0, indexEnd;
+				gl.shaderSource(shader, src);
+				gl.compileShader(shader);
+				if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+				{
+					var error = gl.getShaderInfoLog(shader);
+					console.error(error);
+					return null;
+				}
+				return shader;
+			}
+			function onReset()
+			{
+				// Buf_B Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_B.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Buf_B Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_B.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				// Buf_C Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_C.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Buf_C Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_C.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				// Buf_A Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_A.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Buf_A Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_A.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				// Buf_D Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_D.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Buf_D Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_D.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				// Image Front
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Image.pipeline.front.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Image Back
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Image.pipeline.back.framebuffer);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				paramStruct.startTime = Date.now();
+				paramStruct.frame = 0;
+			}
+			function onWindowResize(event)
+			{
+				canvas.width = window.innerWidth / paramStruct.quality;
+				canvas.height = window.innerHeight / paramStruct.quality;
+				/*var potwidth = 2;
+				while(potwidth < canvas.width) potwidth *= 2;
+				var potheight = 2;
+				while(potheight < canvas.height) potheight *= 2;
+				canvas.width = potwidth;
+				canvas.height = potheight;*/
+				canvas.style.width = window.innerWidth + 'px';
+				canvas.style.height = window.innerHeight + 'px';
+				paramStruct.screenSize[0] = canvas.width;
+				paramStruct.screenSize[1] = canvas.height;
+				if (gl)
+				{
+					gl.viewport(0, 0, canvas.width, canvas.height);
+					programs.Buf_B.pipeline = createPipeline(paramStruct.screenSize[0], paramStruct.screenSize[1]);
+					programs.Buf_C.pipeline = createPipeline(paramStruct.screenSize[0], paramStruct.screenSize[1]);
+					programs.Buf_A.pipeline = createPipeline(paramStruct.screenSize[0], paramStruct.screenSize[1]);
+					programs.Buf_D.pipeline = createPipeline(paramStruct.screenSize[0], paramStruct.screenSize[1]);
+					programs.Image.pipeline = createPipeline(paramStruct.screenSize[0], paramStruct.screenSize[1]);
+					onReset();
+				}
+			}
+			function animate()
+			{
+				requestAnimationFrame(animate);
+				render();
+			}
+			function render()
+			{
+				paramStruct.time = Date.now() - paramStruct.startTime;
+				
+				// Buf_B
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_B.pipeline.front.framebuffer);
+				gl.useProgram(programs.Buf_B);
+				gl.activeTexture(gl.TEXTURE0 + 2);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Buf_A.pipeline.back.texture);
+				gl.uniform1i(programs.Buf_B.uniformsCache['Buf_A'], 2);
+				gl.uniform1i(programs.Buf_B.uniformsCache['iFrame2'], paramStruct.frame);
+				gl.uniform4f(programs.Buf_B.uniformsCache['iMouse'], uniformStruct.iMouse[0], uniformStruct.iMouse[1], uniformStruct.iMouse[2], uniformStruct.iMouse[3]);
+				gl.uniform3f(programs.Buf_B.uniformsCache['iResolution2'], paramStruct.screenSize[0], paramStruct.screenSize[1], 1);
+				gl.uniform1f(programs.Buf_B.uniformsCache['iTime'], paramStruct.time / 1000 * paramStruct.timeFactor);
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.Buf_B.mesh);
+				gl.vertexAttribPointer(programs.Buf_B.a_position, 2, gl.FLOAT, false, 0, 0); 
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Buf_C
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_C.pipeline.front.framebuffer);
+				gl.useProgram(programs.Buf_C);
+				gl.activeTexture(gl.TEXTURE0 + 3);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Buf_B.pipeline.back.texture);
+				gl.uniform1i(programs.Buf_C.uniformsCache['Buf_B'], 3);
+				gl.uniform1i(programs.Buf_C.uniformsCache['iFrame3'], paramStruct.frame);
+				gl.uniform4f(programs.Buf_C.uniformsCache['iMouse'], uniformStruct.iMouse[0], uniformStruct.iMouse[1], uniformStruct.iMouse[2], uniformStruct.iMouse[3]);
+				gl.uniform3f(programs.Buf_C.uniformsCache['iResolution3'], paramStruct.screenSize[0], paramStruct.screenSize[1], 1);
+				gl.uniform1f(programs.Buf_C.uniformsCache['iTime'], paramStruct.time / 1000 * paramStruct.timeFactor);
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.Buf_C.mesh);
+				gl.vertexAttribPointer(programs.Buf_C.a_position, 2, gl.FLOAT, false, 0, 0); 
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Buf_A
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_A.pipeline.front.framebuffer);
+				gl.useProgram(programs.Buf_A);
+				gl.activeTexture(gl.TEXTURE0 + 0);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Buf_D.pipeline.back.texture);
+				gl.uniform1i(programs.Buf_A.uniformsCache['Buf_D'], 0);
+				gl.uniform1i(programs.Buf_A.uniformsCache['iFrame1'], paramStruct.frame);
+				gl.uniform4f(programs.Buf_A.uniformsCache['iMouse'], uniformStruct.iMouse[0], uniformStruct.iMouse[1], uniformStruct.iMouse[2], uniformStruct.iMouse[3]);
+				gl.uniform3f(programs.Buf_A.uniformsCache['iResolution1'], paramStruct.screenSize[0], paramStruct.screenSize[1], 1);
+				gl.uniform1f(programs.Buf_A.uniformsCache['iTime'], paramStruct.time / 1000 * paramStruct.timeFactor);
+				gl.activeTexture(gl.TEXTURE0 + 1);
+				gl.bindTexture(gl.TEXTURE_2D, uniformStruct.uTex2D.texture);
+				gl.uniform1i(programs.Buf_A.uniformsCache['uTex2D'], 1);
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.Buf_A.mesh);
+				gl.vertexAttribPointer(programs.Buf_A.a_position, 2, gl.FLOAT, false, 0, 0); 
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Buf_D
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Buf_D.pipeline.front.framebuffer);
+				gl.useProgram(programs.Buf_D);
+				gl.activeTexture(gl.TEXTURE0 + 4);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Buf_C.pipeline.back.texture);
+				gl.uniform1i(programs.Buf_D.uniformsCache['Buf_C'], 4);
+				gl.uniform1i(programs.Buf_D.uniformsCache['iFrame4'], paramStruct.frame);
+				gl.uniform4f(programs.Buf_D.uniformsCache['iMouse'], uniformStruct.iMouse[0], uniformStruct.iMouse[1], uniformStruct.iMouse[2], uniformStruct.iMouse[3]);
+				gl.uniform3f(programs.Buf_D.uniformsCache['iResolution4'], paramStruct.screenSize[0], paramStruct.screenSize[1], 1);
+				gl.uniform1f(programs.Buf_D.uniformsCache['iTime'], paramStruct.time / 1000 * paramStruct.timeFactor);
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.Buf_D.mesh);
+				gl.vertexAttribPointer(programs.Buf_D.a_position, 2, gl.FLOAT, false, 0, 0); 
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Image
+				gl.bindFramebuffer(gl.FRAMEBUFFER, programs.Image.pipeline.front.framebuffer);
+				gl.useProgram(programs.Image);
+				gl.activeTexture(gl.TEXTURE0 + 2);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Buf_A.pipeline.back.texture);
+				gl.uniform1i(programs.Image.uniformsCache['Buf_A'], 2);
+				gl.uniform1i(programs.Image.uniformsCache['iFrame'], paramStruct.frame);
+				gl.uniform4f(programs.Image.uniformsCache['iMouse'], uniformStruct.iMouse[0], uniformStruct.iMouse[1], uniformStruct.iMouse[2], uniformStruct.iMouse[3]);
+				gl.uniform3f(programs.Image.uniformsCache['iResolution'], paramStruct.screenSize[0], paramStruct.screenSize[1], 1);
+				gl.uniform1f(programs.Image.uniformsCache['iTime'], paramStruct.time / 1000 * paramStruct.timeFactor);
+				gl.bindBuffer(gl.ARRAY_BUFFER, programs.Image.mesh);
+				gl.vertexAttribPointer(programs.Image.a_position, 2, gl.FLOAT, false, 0, 0); 
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				gl.useProgram(screenProgram);
+				gl.uniform2f(screenProgram.uniformsCache['resolution'], paramStruct.screenSize[0], paramStruct.screenSize[1]);
+				gl.uniform1i(screenProgram.uniformsCache['texture'], 0);
+				gl.bindBuffer(gl.ARRAY_BUFFER, quadMesh);
+				gl.vertexAttribPointer(screenVertexPosition, 2, gl.FLOAT, false, 0, 0);
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, programs.Image.pipeline.back.texture);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.drawArrays(gl.TRIANGLES, 0, 6);
+				
+				// Buffer Switching
+				var tmp = programs.Buf_B.pipeline.front;
+				programs.Buf_B.pipeline.front = programs.Buf_B.pipeline.back;
+				programs.Buf_B.pipeline.back = tmp;
+				var tmp = programs.Buf_C.pipeline.front;
+				programs.Buf_C.pipeline.front = programs.Buf_C.pipeline.back;
+				programs.Buf_C.pipeline.back = tmp;
+				var tmp = programs.Buf_A.pipeline.front;
+				programs.Buf_A.pipeline.front = programs.Buf_A.pipeline.back;
+				programs.Buf_A.pipeline.back = tmp;
+				var tmp = programs.Buf_D.pipeline.front;
+				programs.Buf_D.pipeline.front = programs.Buf_D.pipeline.back;
+				programs.Buf_D.pipeline.back = tmp;
+				var tmp = programs.Image.pipeline.front;
+				programs.Image.pipeline.front = programs.Image.pipeline.back;
+				programs.Image.pipeline.back = tmp;
+				
+				paramStruct.frame++;
+			}
+		</script>
+		<canvas width="960" height="455" style="display: block; width: 1920px; height: 910px;"/>
+	</body>
+</html>
